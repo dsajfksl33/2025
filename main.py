@@ -52,6 +52,7 @@ TOPICS = [
     ("삼각형의 분류", "triangle_types"),
     ("합동조건", "congruence"),
     ("닮음 기초", "similarity_basic"),
+    ("평가 방법", "assessment_methods"),  # NEW: meta-evaluation topic
 ]
 
 OBJ_ITEM_TYPES = {"MCQ": "객관식", "NUM": "숫자답", "TF": "참/거짓"}
@@ -172,12 +173,60 @@ def gen_similarity_item() -> ObjItem:
     return ObjItem(id=f"SIM-{A}-{B}", topic="similarity_basic", stem=stem,
                    choices=choices, answer=answer, kind="MCQ", points=2)
 
+def gen_assessment_method_item() -> ObjItem:
+    # Scenario-based MCQ about choosing an appropriate performance evaluation method
+    scenarios = [
+        {
+            "stem": "학생이 삼각형의 합동 조건을 사용하여 자신의 풀이를 단계별로 설명하고 정당화하도록 평가하려고 한다. 가장 적절한 수행평가 방법은?",
+            "choices": [
+                "루브릭 기반 서술형 수행과제",
+                "체크리스트 관찰평가(정답만 확인)",
+                "객관식 지필평가",
+                "단답형 구글폼 퀴즈"
+            ],
+            "answer": "루브릭 기반 서술형 수행과제",
+        },
+        {
+            "stem": "도형 활동 시간에 학생들의 협업과 의사소통을 보며 삼각형 분류 기준을 적용하는 과정을 평가하려 한다. 가장 적절한 방법은?",
+            "choices": [
+                "체크리스트 관찰평가",
+                "루브릭 없는 구술시험",
+                "시간제한 스피드퀴즈",
+                "무작위 구구단 테스트"
+            ],
+            "answer": "체크리스트 관찰평가",
+        },
+        {
+            "stem": "삼각형 외각 정리를 이해했는지, 친구의 풀이를 비판적으로 검토하고 개선안을 제시하게 하려 한다. 가장 적절한 방법은?",
+            "choices": [
+                "동료평가+자기평가(루브릭)",
+                "OX 퀴즈",
+                "암기 시험",
+                "실기 체력장"
+            ],
+            "answer": "동료평가+자기평가(루브릭)",
+        },
+    ]
+    s = random.choice(scenarios)
+    choices = s["choices"].copy()
+    random.shuffle(choices)
+    return ObjItem(
+        id=f"AM-{random.randint(1000,9999)}",
+        topic="assessment_methods",
+        stem=s["stem"],
+        choices=choices,
+        answer=s["answer"],
+        kind="MCQ",
+        points=2,
+    )
+
 GEN_FUNCS = {
     "triangle_angle_sum": gen_angle_sum_item,
     "exterior_angle": gen_exterior_angle_item,
     "triangle_types": gen_triangle_types_item,
     "congruence": gen_congruence_item,
     "similarity_basic": gen_similarity_item,
+    "assessment_methods": lambda: gen_assessment_method_item(),
 }
 
 # -----------------------------
@@ -211,7 +260,19 @@ PERF_BANK: List[PerfTask] = [
         ),
         points=8,
     ),
+    # NEW: Performance evaluation method issue (논제형)
+    PerfTask(
+        id="PT-4",
+        topic="assessment_methods",
+        prompt=(
+            "[논제] 삼각형 단원 수행평가의 목적(개념 이해, 절차, 추론, 의사소통) 중 2가지를 선정하고, "
+            "그에 가장 적합한 평가방법(루브릭 서술형, 체크리스트 관찰, 구술, 동료/자기평가 등)을 제안하라. "
+            "타당도·신뢰도·공정성·실행가능성 관점에서 선택 근거를 비교·설명하고, 과제 예시 1개를 설계하라."
+        ),
+        points=10,
+    ),
 ]
+
 
 # -----------------------------
 # State Init
@@ -329,7 +390,21 @@ else:
                     "response": resp, "correct": correct, "score": score,
                     "answer": item.answer, "topic": item.topic
                 }
-            st.success(f"{student} 점수: {total} / {max_total}")
+            pct = round(100 * total / max_total, 1) if max_total else 0
+            # Emoji feedback
+            if pct >= 90:
+                badge = "🌟🏅🎉"
+                msg = "대단해요! 탁월한 성취"
+            elif pct >= 80:
+                badge = "🎉👍"
+                msg = "아주 잘했어요"
+            elif pct >= 70:
+                badge = "🙂✨"
+                msg = "좋아요! 조금만 더"
+            else:
+                badge = "📚💪"
+                msg = "연습하면 돼요"
+            st.success(f"{student} 점수: {total} / {max_total} ({pct}%) {badge} — {m
 
     # Item Analysis Table
     if st.session_state.responses:

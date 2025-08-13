@@ -1,18 +1,7 @@
-# app.py — Streamlit app for Grade 8 (중2) Math: Triangle Performance Evaluation
+# app_v2.py — Streamlit app for Grade 8 (중2) Math: Triangle Performance Evaluation
+# Added: Emoji feedback on good performance, and problems about performance-evaluation methods
 # Author: ChatGPT (GPT-5 Thinking)
 # Date: 2025-08-13
-#
-# Features
-# - Korean-first UI with English hints
-# - Student roster upload (CSV) + sample roster
-# - Auto-generated quizzes on triangle topics (angle sum, exterior angle, triangle types,
-#   congruence criteria SSS/SAS/ASA/AAS/HL, basic construction/reasoning prompts)
-# - Auto-grading for objective items, rubric scoring for performance tasks
-# - Per-student evaluation flow with evidence notes
-# - Analytics dashboard (mastery by topic, rubric heatmap, item analysis)
-# - Save/Load session to CSV
-#
-# No external packages beyond Streamlit, pandas, numpy, altair.
 
 import io
 import json
@@ -79,10 +68,8 @@ class PerfTask:
 # -----------------------------
 
 def gen_angle_sum_item() -> ObjItem:
-    # Random triangle with two angles given, ask third angle
     a = random.choice(range(20, 121, 5))
     b = random.choice(range(20, 121, 5))
-    # Ensure sum < 180
     while a + b >= 170:
         a = random.choice(range(20, 121, 5))
         b = random.choice(range(20, 121, 5))
@@ -96,7 +83,6 @@ def gen_angle_sum_item() -> ObjItem:
     )
 
 def gen_exterior_angle_item() -> ObjItem:
-    # exterior angle equals sum of two remote interior angles
     x = random.choice(range(100, 160, 5))
     a = random.choice(range(20, 70, 5))
     b = x - a
@@ -111,11 +97,9 @@ def gen_exterior_angle_item() -> ObjItem:
                    choices=choices, answer=str(b), kind="MCQ", points=2)
 
 def gen_triangle_types_item() -> ObjItem:
-    # classify by sides (SSS) or angles
     mode = random.choice(["sides", "angles"])
     if mode == "sides":
         a, b, c = sorted(random.sample(range(3, 12), 3))
-        # Ensure triangle inequality
         while a + b <= c:
             a, b, c = sorted(random.sample(range(3, 12), 3))
         if a == b == c:
@@ -143,7 +127,6 @@ def gen_triangle_types_item() -> ObjItem:
                    stem=stem, choices=choices, answer=answer, kind="MCQ", points=2)
 
 def gen_congruence_item() -> ObjItem:
-    # determine which criterion proves triangles congruent
     options = ["SSS", "SAS", "ASA", "AAS", "HL(직각삼각형)"]
     pattern = random.choice(options[:4])
     if pattern == "SSS":
@@ -154,17 +137,16 @@ def gen_congruence_item() -> ObjItem:
         ans = "SAS"
     elif pattern == "ASA":
         stem = "두 각과 그 사이에 있지 않은 한 변이 각각 같다. 합동 판단 근거는?"
-        ans = "AAS"  # tricky: many 교과서 구분. We'll include both ASA/AAS; adjust
+        ans = "AAS"  # 교과서 표현 다양성으로 인해 트릭성 허용
     else:
         stem = "두 각과 한 변이 각각 같다. 합동 판단 근거는?"
-        ans = random.choice(["ASA", "AAS"])  # accept either in broader phrasing
+        ans = random.choice(["ASA", "AAS"])  # 둘 다 허용 가능
     choices = options[:4] + ["판단 불가"]
     random.shuffle(choices)
     return ObjItem(id=f"CG-{random.randint(1000,9999)}", topic="congruence",
                    stem=stem, choices=choices, answer=ans, kind="MCQ", points=2)
 
 def gen_similarity_item() -> ObjItem:
-    # simple AA similarity check
     A, B = random.choice([30,40,50,60]), random.choice([40,50,60,70])
     stem = f"두 삼각형의 두 각이 각각 {A}°, {B}°로 같다. 닮음 판단이 가능한가?"
     choices = ["가능(AA)", "불가능", "가능(SSS)", "가능(SAS)"]
@@ -226,7 +208,7 @@ GEN_FUNCS = {
     "triangle_types": gen_triangle_types_item,
     "congruence": gen_congruence_item,
     "similarity_basic": gen_similarity_item,
-    "assessment_methods": lambda: gen_assessment_method_item(),
+    "assessment_methods": gen_assessment_method_item,
 }
 
 # -----------------------------
@@ -260,19 +242,16 @@ PERF_BANK: List[PerfTask] = [
         ),
         points=8,
     ),
-    # NEW: Performance evaluation method issue (논제형)
     PerfTask(
         id="PT-4",
         topic="assessment_methods",
         prompt=(
-            "[논제] 삼각형 단원 수행평가의 목적(개념 이해, 절차, 추론, 의사소통) 중 2가지를 선정하고, "
-            "그에 가장 적합한 평가방법(루브릭 서술형, 체크리스트 관찰, 구술, 동료/자기평가 등)을 제안하라. "
+            "[논제] 삼각형 단원 수행평가의 목적(개념 이해, 절차, 추론, 의사소통) 중 2가지를 선정하고, 그에 가장 적합한 평가방법(루브릭 서술형, 체크리스트 관찰, 구술, 동료/자기평가 등)을 제안하라. "
             "타당도·신뢰도·공정성·실행가능성 관점에서 선택 근거를 비교·설명하고, 과제 예시 1개를 설계하라."
         ),
         points=10,
     ),
 ]
-
 
 # -----------------------------
 # State Init
@@ -289,11 +268,9 @@ if "quiz_items" not in st.session_state:
     st.session_state.quiz_items: List[ObjItem] = []
 
 if "responses" not in st.session_state:
-    # responses[(student_id, item_id)] = {"response": ..., "correct": bool, "score": int}
     st.session_state.responses: Dict[str, Dict[str, Any]] = {}
 
 if "rubric_scores" not in st.session_state:
-    # rubric_scores[(student_id, task_id)] = {criterion_key: level(1-4), "notes": str}
     st.session_state.rubric_scores: Dict[str, Dict[str, Any]] = {}
 
 # -----------------------------
@@ -331,7 +308,6 @@ with col1:
     file = st.file_uploader("학생 명단 CSV 업로드", type=["csv"])
     if file is not None:
         df = pd.read_csv(file)
-        # Normalize columns
         cols_lower = {c.lower(): c for c in df.columns}
         id_col = cols_lower.get("id") or cols_lower.get("학번") or list(df.columns)[0]
         name_col = cols_lower.get("이름") or cols_lower.get("name") or list(df.columns)[1]
@@ -348,7 +324,7 @@ with col2:
 st.dataframe(st.session_state.students, use_container_width=True, height=220)
 
 # -----------------------------
-# Quiz Conduct & Auto-Grading
+# Quiz Conduct & Auto-Grading (with Emoji feedback)
 # -----------------------------
 
 st.header("📝 객관식 평가 (Objective Quiz)")
@@ -391,28 +367,26 @@ else:
                     "answer": item.answer, "topic": item.topic
                 }
             pct = round(100 * total / max_total, 1) if max_total else 0
-            # Emoji feedback
             if pct >= 90:
-                badge = "🌟🏅🎉"
-                msg = "대단해요! 탁월한 성취"
+                badge, msg = "🌟🏅🎉", "대단해요! 탁월한 성취"
             elif pct >= 80:
-                badge = "🎉👍"
-                msg = "아주 잘했어요"
+                badge, msg = "🎉👍", "아주 잘했어요"
             elif pct >= 70:
-                badge = "🙂✨"
-                msg = "좋아요! 조금만 더"
+                badge, msg = "🙂✨", "좋아요! 조금만 더"
             else:
-                badge = "📚💪"
-                msg = "연습하면 돼요"
-            st.success(f"{student} 점수: {total} / {max_total} ({pct}%) {badge} — {m
+                badge, msg = "📚💪", "연습하면 돼요"
+            st.success(f"{student} 점수: {total} / {max_total} ({pct}%) {badge} — {msg}")
 
     # Item Analysis Table
     if st.session_state.responses:
         records = []
         for (sid_k, iid), rec in st.session_state.responses.items():
             if sid_k == sid:
-                records.append({"학생ID": sid_k, "문항": iid, "정답": rec["answer"], "응답": rec["response"],
-                                "정오": "O" if rec["correct"] else "X", "점수": rec["score"], "주제": rec["topic"]})
+                feedback = "✅" if rec["correct"] else "❌"
+                records.append({
+                    "학생ID": sid_k, "문항": iid, "정답": rec["answer"], "응답": rec["response"],
+                    "정오": feedback, "점수": rec["score"], "주제": rec["topic"]
+                })
         if records:
             df_rec = pd.DataFrame(records)
             st.dataframe(df_rec, use_container_width=True)
@@ -454,16 +428,18 @@ with colr1:
         }
         st.toast("저장되었습니다", icon="💾")
 with colr2:
-    # Display existing rubric scores for this student/task
     existing = st.session_state.rubric_scores.get((sid2, task_obj.id))
     if existing:
         st.subheader("저장된 점수")
+        total_lvl = sum(existing[c["key"]] for c in RUBRIC_CRITERIA)
+        face = "🌟" if total_lvl >= 14 else ("🎉" if total_lvl >= 11 else ("🙂" if total_lvl >= 8 else "📌"))
         df_r = pd.DataFrame(
             [{"기준": c["kr"], "수준(1-4)": existing[c["key"]]} for c in RUBRIC_CRITERIA]
         )
-        df_r.loc[len(df_r)] = ["합계(가중치=1)", sum(existing[c["key"]] for c in RUBRIC_CRITERIA)]
+        df_r.loc[len(df_r)] = ["합계(4~16)", total_lvl]
         st.dataframe(df_r, use_container_width=True)
         st.caption(f"메모: {existing.get('notes','')}")
+        st.success(f"루브릭 총점 피드백: {total_lvl} {face}")
 
 # -----------------------------
 # Analytics Dashboard
@@ -471,7 +447,6 @@ with colr2:
 
 st.header("📊 성취 분석 (Analytics)")
 
-# Mastery by topic from objective items
 if st.session_state.responses:
     resp_df = pd.DataFrame([
         {"학생ID": k[0], "문항": k[1], **v} for k, v in st.session_state.responses.items()
@@ -490,11 +465,12 @@ if st.session_state.responses:
 else:
     st.info("객관식 응답 데이터가 필요합니다.")
 
-# Rubric heatmap-like table
 if st.session_state.rubric_scores:
     rows = []
     for (sid_k, tid), rec in st.session_state.rubric_scores.items():
-        row = {"학생ID": sid_k, "과제": tid}
+        total_lvl = sum(rec.get(c["key"], 0) for c in RUBRIC_CRITERIA)
+        face = "🌟" if total_lvl >= 14 else ("🎉" if total_lvl >= 11 else ("🙂" if total_lvl >= 8 else "📌"))
+        row = {"학생ID": sid_k, "과제": tid, "합계(4~16)": total_lvl, "피드백": face}
         for c in RUBRIC_CRITERIA:
             row[c["kr"]] = rec.get(c["key"], np.nan)
         rows.append(row)
@@ -541,7 +517,6 @@ with colx2:
         else:
             st.warning("저장할 루브릭 점수가 없습니다.")
 with colx3:
-    # Session snapshot (quiz items + responses + rubric)
     snap = {
         "quiz_items": [asdict(x) for x in st.session_state.quiz_items],
         "responses": {(f"{k[0]}::{k[1]}"): v for k, v in st.session_state.responses.items()},
@@ -558,10 +533,12 @@ with st.expander("❓도움말 (How to use)"):
         1) **좌측에서 출제 범위와 문항 수를 정하고 Generate**를 누르세요.
         2) **학생 명단**을 업로드하거나 샘플을 사용하세요.
         3) **객관식 평가** 탭에서 학생이 응답한 뒤, 채점 대상 학생을 고르고 **Auto-grade**.
+           - 점수 비율에 따라 이모지 피드백이 뜹니다. (🌟/🎉/🙂/📚)
         4) **수행평가** 영역에서 루브릭(1~4) 점수를 기록하고 메모를 남기세요.
+           - 루브릭 총점에도 이모지 피드백이 표시됩니다.
         5) **성취 분석**에서 토픽별 정답률과 루브릭 분포를 확인하세요.
         6) **내보내기** 버튼으로 CSV/JSON 파일로 저장하세요.
         
-        ※ 합동조건(ASA/AAS) 서술은 교과서에 따라 표현이 다를 수 있어, 해당 문항은 채점 후 교사 검토를 권장합니다.
+        ※ 새로 추가된 토픽 **“평가 방법”** 문항은 상황에 맞는 수행평가 방식을 고르는 시나리오형 문제입니다.
         """
     )
